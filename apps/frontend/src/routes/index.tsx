@@ -42,6 +42,10 @@ function LandingPage() {
       <Header userMenu={<HeaderMenu />} />
       <main className="min-h-svh">
         <section className="mx-auto w-full max-w-2xl px-4 pt-16 pb-12 text-center">
+          <div className="text-3xl font-bold tracking-tight text-balance sm:text-4xl mb-8">
+            Vojtěch Keder (kedv00)
+          </div>
+
           <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl">
             Say it in a few words.
           </h1>
