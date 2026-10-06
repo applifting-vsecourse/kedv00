@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
+import { Ban, Loader2 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
@@ -13,14 +13,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 
 import { quackMoodSchema } from "@/features/quack/api/quackSchemas"
@@ -31,8 +25,8 @@ import { moodOptions } from "@/features/quack/lib/moods"
 // the request is made — the server still validates independently.
 const MAX_LENGTH = 280
 
-// Radix Select cannot hold an empty value, so "no mood" gets a sentinel that is
-// translated to an omitted field before the request.
+// A toggle group cannot hold an empty value, so "no mood" gets a sentinel that
+// is translated to an omitted field before the request.
 const NO_MOOD = "none"
 
 const schema = z.object({
@@ -78,84 +72,88 @@ export function QuackForm({ className }: QuackFormProps) {
           </Alert>
         ) : null}
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-          <FormField
-            control={form.control}
-            name="text"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>New quack</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={3}
-                    placeholder="Quack something..."
-                    disabled={addQuack.isPending}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <FormField
+          control={form.control}
+          name="text"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>New quack</FormLabel>
+              <FormControl>
+                <Textarea
+                  rows={3}
+                  placeholder="Quack something..."
+                  disabled={addQuack.isPending}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <FormField
             control={form.control}
             name="mood"
             render={({ field }) => (
-              <FormItem className="sm:w-40">
+              <FormItem className="flex items-center gap-3">
                 <FormLabel>Mood (optional)</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={addQuack.isPending}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem
+                <FormControl>
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    aria-label="Mood"
+                    value={field.value}
+                    // Clicking the selected button reports an empty value;
+                    // ignore it so one option always stays selected.
+                    onValueChange={(value) => {
+                      if (value) field.onChange(value)
+                    }}
+                    disabled={addQuack.isPending}
+                  >
+                    <ToggleGroupItem
                       value={NO_MOOD}
+                      aria-label="No mood"
+                      title="No mood"
                       className="cursor-pointer"
                     >
-                      No mood
-                    </SelectItem>
+                      <Ban />
+                    </ToggleGroupItem>
                     {moodOptions.map((option) => (
-                      <SelectItem
+                      <ToggleGroupItem
                         key={option.value}
                         value={option.value}
+                        aria-label={option.label}
+                        title={option.label}
                         className="cursor-pointer"
                       >
-                        <span aria-hidden="true">{option.emoji}</span>
-                        {option.label}
-                      </SelectItem>
+                        <option.icon />
+                      </ToggleGroupItem>
                     ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
+                  </ToggleGroup>
+                </FormControl>
               </FormItem>
             )}
           />
-        </div>
 
-        <div className="flex items-center justify-end gap-3">
-          <span
-            className={cn(
-              "text-sm",
-              length > MAX_LENGTH ? "text-destructive" : "text-muted-foreground",
-            )}
-          >
-            {length}/{MAX_LENGTH}
-          </span>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={addQuack.isPending}
-          >
-            {addQuack.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-            Quack
-          </Button>
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                "text-sm",
+                length > MAX_LENGTH ? "text-destructive" : "text-muted-foreground",
+              )}
+            >
+              {length}/{MAX_LENGTH}
+            </span>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={addQuack.isPending}
+            >
+              {addQuack.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              Quack
+            </Button>
+          </div>
         </div>
       </form>
     </Form>

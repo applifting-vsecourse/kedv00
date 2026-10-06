@@ -35,8 +35,8 @@ export function QuackItem({ quack }: QuackItemProps) {
           {mood ? (
             <>
               <span className="text-xs text-muted-foreground">·</span>
-              <span className="text-xs text-muted-foreground">
-                <span aria-hidden="true">{mood.emoji} </span>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <mood.icon className="size-3.5" />
                 {mood.label}
               </span>
             </>
