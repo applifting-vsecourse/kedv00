@@ -10,9 +10,10 @@ These are rules, not suggestions. When a rule and a "nicer looking" idea disagre
 
 ## Colour
 
-- **Never hardcode a colour.** No `#hex`, no `bg-blue-500`, no `rgb()`. Use the semantic classes only: `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-card`, `bg-primary`, `bg-secondary`, `border-border`, `bg-destructive`.
+- **Never hardcode a colour.** No `#hex`, no `bg-blue-500`, no `rgb()`. Use the semantic classes only: `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-card`, `bg-primary`, `bg-secondary`, `border-border`, `bg-destructive`, `bg-highlight`.
 - **`primary` is for actions, not decoration.** One primary button per view. Everything else is `outline`, `ghost` or a plain link.
 - **`destructive` only for destructive actions and errors.** Never for emphasis.
+- **`highlight` marks search matches in text, nothing else.** Use `bg-highlight text-highlight-foreground` together, never one without the other.
 - **`accent` is a hover/active surface, not a brand colour.** It tints menu items and ghost buttons on hover, so it must stay quiet. The brand colour is `primary`.
 - Body text is `foreground`; supporting text is `muted-foreground`. There is no third level.
 
