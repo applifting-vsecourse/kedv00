@@ -24,6 +24,12 @@ const mapPrismaQuackToDomain = (
     : undefined,
 });
 
+// Prisma's `contains` compiles to ILIKE '%' || term || '%' without escaping the
+// term, so `%` and `_` would act as wildcards. Backslash is Postgres's default
+// LIKE escape character.
+const escapeLikeWildcards = (term: string): string =>
+  term.replace(/[\\%_]/g, '\\$&');
+
 /**
  * If you decide to choose a different ORM or database, you should only need to change the repository files methods implementation.
  * Inject what you need instead of PrismaService and re-implement the methods and model mapping.
@@ -32,8 +38,19 @@ const mapPrismaQuackToDomain = (
 export class QuackRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getQuacks(): Promise<Quack[]> {
+  async getQuacks(filter: { search?: string } = {}): Promise<Quack[]> {
+    const pattern = filter.search
+      ? escapeLikeWildcards(filter.search)
+      : undefined;
     const quacks = await this.prisma.quack.findMany({
+      where: pattern
+        ? {
+            OR: [
+              { text: { contains: pattern, mode: 'insensitive' } },
+              { user: { name: { contains: pattern, mode: 'insensitive' } } },
+            ],
+          }
+        : undefined,
       include: { user: true },
       orderBy: { createdAt: 'desc' },
     });
