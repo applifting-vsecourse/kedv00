@@ -40,8 +40,43 @@ model Quack {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
+  // A quack is a poll when it has options.
+  pollOptions PollOption[]
+  pollVotes   PollVote[]
+
   @@index([userId])
   @@map("quack")
+}
+
+model PollOption {
+  id       String     @id @default(cuid())
+  quack    Quack      @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId  String
+  text     String     @db.VarChar(80)
+  // 0-based, the order the asker entered the answers in
+  position Int
+  votes    PollVote[]
+
+  @@unique([quackId, position])
+  // Target of PollVote's composite FK, so a vote can only point at an option of its own poll.
+  @@unique([id, quackId])
+  @@map("poll_option")
+}
+
+model PollVote {
+  quack     Quack      @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId   String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  option    PollOption @relation(fields: [optionId, quackId], references: [id, quackId], onDelete: Cascade)
+  optionId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+
+  // One person, one vote per poll. Changing a vote updates this row.
+  @@id([quackId, userId])
+  @@index([optionId])
+  @@map("poll_vote")
 }
 
 model Session {
@@ -103,6 +138,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   quacks          Quack[]
+  pollVotes       PollVote[]
   role            UserRole  @default(user)
 
   username        String? @db.VarChar(50)

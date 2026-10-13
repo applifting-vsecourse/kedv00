@@ -92,6 +92,11 @@ export const seedDatabase = async (
     minutesAgo: number;
     text: string;
     mood?: QuackMood;
+    poll?: {
+      options: string[];
+      // Each voter with the index of the option they picked.
+      votes: [User, number][];
+    };
   }[] = [
     {
       author: pondAdmin,
@@ -112,6 +117,24 @@ The V formation works beautifully right up until whoever is at the front decides
       minutesAgo: 2255,
       text: `Sourdough. Thrown by a child. Landed two metres short of anyone.
 Crust: excellent. Delivery: amateur. 6/10.`,
+    },
+    {
+      author: pondAdmin,
+      minutesAgo: 2100,
+      text: `Where should we hold the summer picnic?`,
+      poll: {
+        options: [
+          'North end (once the heron leaves)',
+          'West bank (stones permitting)',
+          'Under the big willow',
+        ],
+        votes: [
+          [caffeinatedDuck, 2],
+          [deepDuckThoughts, 2],
+          [breadCritic, 0],
+          [pondAdmin, 2],
+        ],
+      },
     },
     {
       author: caffeinatedDuck,
@@ -158,6 +181,19 @@ The pond is not ready for this level of quality and, frankly, neither am I. 9/10
 Some of us would quite like to feel things.`,
     },
     {
+      author: breadCritic,
+      minutesAgo: 150,
+      mood: 'silly',
+      text: `Settle this once and for all. Best bread to throw at a duck?`,
+      poll: {
+        options: ['Sourdough', 'Multigrain', 'Baguette', "None, it's bad for us"],
+        votes: [
+          [migrationSeason, 3],
+          [deepDuckThoughts, 1],
+        ],
+      },
+    },
+    {
       author: caffeinatedDuck,
       minutesAgo: 95,
       mood: 'happy',
@@ -175,12 +211,29 @@ Please stop tagging me.`,
 
   const now = Date.now();
 
-  for (const { author, minutesAgo, text, mood } of exampleQuacks) {
-    await createQuack(prisma, {
+  for (const { author, minutesAgo, text, mood, poll } of exampleQuacks) {
+    const quack = await createQuack(prisma, {
       text,
       mood,
       userId: author.id,
       createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
+      pollOptions: poll?.options,
     });
+
+    if (!poll) continue;
+
+    const options = await prisma.pollOption.findMany({
+      where: { quackId: quack.id },
+      orderBy: { position: 'asc' },
+    });
+    for (const [voter, optionIndex] of poll.votes) {
+      await prisma.pollVote.create({
+        data: {
+          quackId: quack.id,
+          userId: voter.id,
+          optionId: options[optionIndex].id,
+        },
+      });
+    }
   }
 };
