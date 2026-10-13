@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
-import { useForm, useWatch } from "react-hook-form"
+import { ListChecks, Loader2, Plus, X } from "lucide-react"
+import { useFieldArray, useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
 import { MoodPicker } from "@/components/MoodPicker"
@@ -14,12 +14,19 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Toggle } from "@/components/ui/toggle"
 import { NO_MOOD } from "@/lib/moods"
 import { cn } from "@/lib/utils"
 
 import { quackMoodSchema, type QuackMood } from "@/features/quack/api/quackSchemas"
 import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
+import {
+  POLL_MAX_OPTIONS,
+  POLL_MIN_OPTIONS,
+  POLL_OPTION_MAX_LENGTH,
+} from "@/features/quack/lib/poll"
 
 // Mirrors the server-side DTO (MaxLength(280)) so the user is told before
 // the request is made — the server still validates independently.
@@ -32,6 +39,33 @@ const schema = z.object({
     .min(1, "Write something first")
     .max(MAX_LENGTH, `Keep it under ${MAX_LENGTH} characters`),
   mood: z.union([z.literal(NO_MOOD), quackMoodSchema]),
+  // Empty for a plain quack. Objects rather than strings because
+  // react-hook-form's field arrays need them.
+  pollOptions: z
+    .array(
+      z.object({
+        text: z
+          .string()
+          .trim()
+          .min(1, "Write an answer or remove it")
+          .max(POLL_OPTION_MAX_LENGTH, `Keep it under ${POLL_OPTION_MAX_LENGTH} characters`),
+      }),
+    )
+    .superRefine((options, ctx) => {
+      // Same rule as the server: answers may not differ only in case.
+      const seen = new Set<string>()
+      options.forEach((option, index) => {
+        const key = option.text.toLowerCase()
+        if (key && seen.has(key)) {
+          ctx.addIssue({
+            code: "custom",
+            message: "This answer is already in the poll",
+            path: [index, "text"],
+          })
+        }
+        seen.add(key)
+      })
+    }),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -47,16 +81,37 @@ export function QuackForm({ className, defaultMood: initialMood }: QuackFormProp
   const defaultMood = initialMood ?? NO_MOOD
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { text: "", mood: defaultMood },
+    defaultValues: { text: "", mood: defaultMood, pollOptions: [] },
   })
+  const pollOptions = useFieldArray({ control: form.control, name: "pollOptions" })
+  const isPoll = pollOptions.fields.length > 0
 
   const text = useWatch({ control: form.control, name: "text" })
   const length = text?.length ?? 0
 
+  const togglePoll = (isOn: boolean) => {
+    if (isOn) {
+      pollOptions.append(
+        Array.from({ length: POLL_MIN_OPTIONS }, () => ({ text: "" })),
+        { focusIndex: 0 },
+      )
+    } else {
+      // Turning the poll off throws its answers away.
+      pollOptions.remove()
+    }
+  }
+
   const handleSubmit = (values: FormValues) => {
     addQuack.mutate(
-      { text: values.text, mood: values.mood === NO_MOOD ? undefined : values.mood },
-      { onSuccess: () => form.reset({ text: "", mood: defaultMood }) },
+      {
+        text: values.text,
+        mood: values.mood === NO_MOOD ? undefined : values.mood,
+        poll:
+          values.pollOptions.length > 0
+            ? { options: values.pollOptions.map((option) => option.text) }
+            : undefined,
+      },
+      { onSuccess: () => form.reset({ text: "", mood: defaultMood, pollOptions: [] }) },
     )
   }
 
@@ -82,7 +137,7 @@ export function QuackForm({ className, defaultMood: initialMood }: QuackFormProp
               <FormControl>
                 <Textarea
                   rows={3}
-                  placeholder="Quack something..."
+                  placeholder={isPoll ? "Where should we go for lunch?" : "Quack something..."}
                   disabled={addQuack.isPending}
                   {...field}
                 />
@@ -91,6 +146,60 @@ export function QuackForm({ className, defaultMood: initialMood }: QuackFormProp
             </FormItem>
           )}
         />
+
+        {isPoll ? (
+          <fieldset className="flex flex-col gap-3">
+            <legend className="mb-3 text-sm text-muted-foreground">
+              Your quack is the question. People pick one answer.
+            </legend>
+            {pollOptions.fields.map((option, index) => (
+              <FormField
+                key={option.id}
+                control={form.control}
+                name={`pollOptions.${index}.text`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Answer {index + 1}</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <Input
+                          disabled={addQuack.isPending}
+                          {...field}
+                        />
+                      </FormControl>
+                      {pollOptions.fields.length > POLL_MIN_OPTIONS ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove answer ${index + 1}`}
+                          disabled={addQuack.isPending}
+                          onClick={() => pollOptions.remove(index)}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+            {pollOptions.fields.length < POLL_MAX_OPTIONS ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                disabled={addQuack.isPending}
+                onClick={() => pollOptions.append({ text: "" })}
+              >
+                <Plus className="size-4" />
+                Add answer
+              </Button>
+            ) : null}
+          </fieldset>
+        ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FormField
@@ -111,6 +220,16 @@ export function QuackForm({ className, defaultMood: initialMood }: QuackFormProp
           />
 
           <div className="flex items-center gap-3">
+            <Toggle
+              variant="outline"
+              size="sm"
+              pressed={isPoll}
+              onPressedChange={togglePoll}
+              disabled={addQuack.isPending}
+            >
+              <ListChecks className="size-4" />
+              Add poll
+            </Toggle>
             <span
               className={cn(
                 "text-sm",

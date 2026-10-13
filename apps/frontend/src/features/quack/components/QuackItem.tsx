@@ -4,6 +4,7 @@ import { getMoodOption } from "@/lib/moods"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { HighlightedText } from "@/features/quack/components/HighlightedText"
+import { PollResults } from "@/features/quack/components/PollResults"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
@@ -57,6 +58,12 @@ export function QuackItem({ quack, highlight }: QuackItemProps) {
             highlight={highlight}
           />
         </p>
+        {quack.poll ? (
+          <PollResults
+            quackId={quack.id}
+            poll={quack.poll}
+          />
+        ) : null}
       </div>
     </article>
   )

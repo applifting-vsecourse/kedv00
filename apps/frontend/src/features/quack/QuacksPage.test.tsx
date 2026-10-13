@@ -36,6 +36,7 @@ const QUACKS = [
     userId: "u1",
     createdAt: "2026-10-01T12:00:00Z",
     user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
+    poll: null,
   },
   {
     id: "q2",
@@ -44,6 +45,7 @@ const QUACKS = [
     userId: "u2",
     createdAt: "2026-09-30T12:00:00Z",
     user: { id: "u2", name: "Bread Critic", username: "BreadCritic" },
+    poll: null,
   },
 ]
 
