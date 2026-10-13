@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Ban, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
+import { MoodPicker } from "@/components/MoodPicker"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,20 +15,15 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Textarea } from "@/components/ui/textarea"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { NO_MOOD } from "@/lib/moods"
 import { cn } from "@/lib/utils"
 
-import { quackMoodSchema } from "@/features/quack/api/quackSchemas"
+import { quackMoodSchema, type QuackMood } from "@/features/quack/api/quackSchemas"
 import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
-import { moodOptions } from "@/features/quack/lib/moods"
 
 // Mirrors the server-side DTO (MaxLength(280)) so the user is told before
 // the request is made — the server still validates independently.
 const MAX_LENGTH = 280
-
-// A toggle group cannot hold an empty value, so "no mood" gets a sentinel that
-// is translated to an omitted field before the request.
-const NO_MOOD = "none"
 
 const schema = z.object({
   text: z
@@ -40,13 +36,18 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-type QuackFormProps = { className?: string }
+type QuackFormProps = {
+  className?: string
+  // The mood the form starts with, taken from the user's settings.
+  defaultMood?: QuackMood | null
+}
 
-export function QuackForm({ className }: QuackFormProps) {
+export function QuackForm({ className, defaultMood: initialMood }: QuackFormProps) {
   const addQuack = useAddQuack()
+  const defaultMood = initialMood ?? NO_MOOD
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { text: "", mood: NO_MOOD },
+    defaultValues: { text: "", mood: defaultMood },
   })
 
   const text = useWatch({ control: form.control, name: "text" })
@@ -55,7 +56,7 @@ export function QuackForm({ className }: QuackFormProps) {
   const handleSubmit = (values: FormValues) => {
     addQuack.mutate(
       { text: values.text, mood: values.mood === NO_MOOD ? undefined : values.mood },
-      { onSuccess: () => form.reset() },
+      { onSuccess: () => form.reset({ text: "", mood: defaultMood }) },
     )
   }
 
@@ -99,38 +100,11 @@ export function QuackForm({ className }: QuackFormProps) {
               <FormItem className="flex items-center gap-3">
                 <FormLabel>Mood (optional)</FormLabel>
                 <FormControl>
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    aria-label="Mood"
+                  <MoodPicker
                     value={field.value}
-                    // Clicking the selected button reports an empty value;
-                    // ignore it so one option always stays selected.
-                    onValueChange={(value) => {
-                      if (value) field.onChange(value)
-                    }}
-                    disabled={addQuack.isPending}
-                  >
-                    <ToggleGroupItem
-                      value={NO_MOOD}
-                      aria-label="No mood"
-                      title="No mood"
-                      className="cursor-pointer"
-                    >
-                      <Ban />
-                    </ToggleGroupItem>
-                    {moodOptions.map((option) => (
-                      <ToggleGroupItem
-                        key={option.value}
-                        value={option.value}
-                        aria-label={option.label}
-                        title={option.label}
-                        className="cursor-pointer"
-                      >
-                        <option.icon />
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
+                    onChange={field.onChange}
+                    isDisabled={addQuack.isPending}
+                  />
                 </FormControl>
               </FormItem>
             )}

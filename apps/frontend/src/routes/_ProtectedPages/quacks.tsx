@@ -6,6 +6,7 @@ import { z } from "zod"
 import { Seo } from "@/components/Seo"
 import { Separator } from "@/components/ui/separator"
 
+import { useSession } from "@/features/auth/hooks/useSession"
 import { quacksQueryOptions } from "@/features/quack/api/quacksQueryOptions"
 import { QuackForm } from "@/features/quack/components/QuackForm"
 import { QuackList } from "@/features/quack/components/QuackList"
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_ProtectedPages/quacks")({
 })
 
 function QuacksPage() {
+  const { user } = useSession()
   const { q = "" } = Route.useSearch()
   const navigate = Route.useNavigate()
   const searchTerm = toSearchTerm(q)
@@ -58,7 +60,7 @@ function QuacksPage() {
       <section className="mx-auto w-full max-w-2xl px-4 py-8">
         <h1 className="mb-4 text-2xl font-semibold tracking-tight">Quacks</h1>
 
-        <QuackForm />
+        <QuackForm defaultMood={user?.defaultMood} />
 
         <Separator className="my-6" />
 
