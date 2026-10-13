@@ -1,11 +1,11 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatDate } from "@/lib/date"
+import { getMoodOption } from "@/lib/moods"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { HighlightedText } from "@/features/quack/components/HighlightedText"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
-import { getMoodOption } from "@/features/quack/lib/moods"
 
 type QuackItemProps = {
   quack: Quack
