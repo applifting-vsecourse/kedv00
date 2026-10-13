@@ -186,7 +186,12 @@ Some of us would quite like to feel things.`,
       mood: 'silly',
       text: `Settle this once and for all. Best bread to throw at a duck?`,
       poll: {
-        options: ['Sourdough', 'Multigrain', 'Baguette', "None, it's bad for us"],
+        options: [
+          'Sourdough',
+          'Multigrain',
+          'Baguette',
+          "None, it's bad for us",
+        ],
         votes: [
           [migrationSeason, 3],
           [deepDuckThoughts, 1],

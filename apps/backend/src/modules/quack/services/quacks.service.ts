@@ -7,17 +7,26 @@ import { Injectable } from '@nestjs/common';
 export class QuacksService {
   constructor(private readonly quackRepository: QuackRepository) {}
 
-  async getQuacks(filter: { search?: string } = {}): Promise<Quack[]> {
-    return this.quackRepository.getQuacks(filter);
+  async getQuacks(
+    viewer: Identity,
+    filter: { search?: string } = {},
+  ): Promise<Quack[]> {
+    // the viewer decides which answer is marked as their own in each poll
+    return this.quackRepository.getQuacks(viewer.id, filter);
   }
 
   async createQuack(
     user: Identity,
-    quackData: { text: string; mood?: QuackMood | null },
+    quackData: {
+      text: string;
+      mood?: QuackMood | null;
+      pollOptions?: string[];
+    },
   ): Promise<Quack> {
     return this.quackRepository.createQuack({
       text: quackData.text,
       mood: quackData.mood ?? null,
+      pollOptions: quackData.pollOptions,
       // the author is taken from the session, never from the request body
       userId: user.id,
     });

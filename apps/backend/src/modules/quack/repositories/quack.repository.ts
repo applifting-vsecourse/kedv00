@@ -1,13 +1,22 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
-import {
-  Quack as PrismaQuack,
-  User as PrismaUser,
-} from '@/generated/prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import { Quack, QuackMood } from '@/modules/quack/domain/quack';
 import { Injectable } from '@nestjs/common';
+import {
+  mapPollRowsToDomain,
+  PollRelations,
+  pollRelations,
+} from './poll.mapping';
+
+type QuackInclude = PollRelations & { user: true };
+
+const quackInclude = (viewerId: string): QuackInclude => ({
+  user: true,
+  ...pollRelations(viewerId),
+});
 
 const mapPrismaQuackToDomain = (
-  quack: PrismaQuack & { user?: PrismaUser },
+  quack: Prisma.QuackGetPayload<{ include: QuackInclude }>,
 ): Quack => ({
   id: quack.id,
   text: quack.text,
@@ -22,6 +31,7 @@ const mapPrismaQuackToDomain = (
         username: quack.user.username ?? '',
       }
     : undefined,
+  poll: mapPollRowsToDomain(quack),
 });
 
 // Prisma's `contains` compiles to ILIKE '%' || term || '%' without escaping the
@@ -38,7 +48,10 @@ const escapeLikeWildcards = (term: string): string =>
 export class QuackRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getQuacks(filter: { search?: string } = {}): Promise<Quack[]> {
+  async getQuacks(
+    viewerId: string,
+    filter: { search?: string } = {},
+  ): Promise<Quack[]> {
     const pattern = filter.search
       ? escapeLikeWildcards(filter.search)
       : undefined;
@@ -51,7 +64,7 @@ export class QuackRepository {
             ],
           }
         : undefined,
-      include: { user: true },
+      include: quackInclude(viewerId),
       orderBy: { createdAt: 'desc' },
     });
     return quacks.map(mapPrismaQuackToDomain);
@@ -61,14 +74,24 @@ export class QuackRepository {
     text: string;
     mood: QuackMood | null;
     userId: string;
+    // answers in display order, only for a poll
+    pollOptions?: string[];
   }): Promise<Quack> {
+    // The options are a nested write, so the quack and its poll are created in
+    // one transaction: there is never a poll quack without its answers.
     const quack = await this.prisma.quack.create({
       data: {
         text: createQuackData.text,
         mood: createQuackData.mood,
         user: { connect: { id: createQuackData.userId } },
+        pollOptions: createQuackData.pollOptions && {
+          create: createQuackData.pollOptions.map((text, position) => ({
+            text,
+            position,
+          })),
+        },
       },
-      include: { user: true },
+      include: quackInclude(createQuackData.userId),
     });
     return mapPrismaQuackToDomain(quack);
   }

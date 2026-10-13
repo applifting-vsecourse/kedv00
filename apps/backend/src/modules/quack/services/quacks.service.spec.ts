@@ -14,6 +14,7 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
   createdAt: new Date('2026-01-01T12:00:00Z'),
   updatedAt: new Date('2026-01-01T12:00:00Z'),
   user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
+  poll: null,
   ...overrides,
 });
 
@@ -24,10 +25,12 @@ describe('QuacksService', () => {
     repository.getQuacks.mockResolvedValue(quacks);
 
     const service = new QuacksService(repository);
+    const viewer = { id: 'u1' } as Identity;
 
-    await expect(service.getQuacks()).resolves.toEqual(quacks);
+    await expect(service.getQuacks(viewer)).resolves.toEqual(quacks);
     expect(repository.getQuacks).toHaveBeenCalledTimes(1);
-    expect(repository.getQuacks).toHaveBeenCalledWith({});
+    // the viewer decides which poll answers are marked as their own
+    expect(repository.getQuacks).toHaveBeenCalledWith('u1', {});
   });
 
   it('passes the search term to the repository', async () => {
@@ -36,11 +39,12 @@ describe('QuacksService', () => {
     repository.getQuacks.mockResolvedValue(quacks);
 
     const service = new QuacksService(repository);
+    const viewer = { id: 'u1' } as Identity;
 
-    await expect(service.getQuacks({ search: 'duck' })).resolves.toEqual(
-      quacks,
-    );
-    expect(repository.getQuacks).toHaveBeenCalledWith({ search: 'duck' });
+    await expect(
+      service.getQuacks(viewer, { search: 'duck' }),
+    ).resolves.toEqual(quacks);
+    expect(repository.getQuacks).toHaveBeenCalledWith('u1', { search: 'duck' });
   });
 
   it('creates a quack owned by the signed-in user', async () => {
@@ -74,6 +78,26 @@ describe('QuacksService', () => {
     expect(repository.createQuack).toHaveBeenCalledWith({
       text: 'hello',
       mood: 'silly',
+      userId: 'u1',
+    });
+  });
+
+  it('creates a poll with the answers in the order given', async () => {
+    const repository = mock<QuackRepository>();
+    repository.createQuack.mockResolvedValue(aQuack());
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u1' } as Identity;
+
+    await service.createQuack(user, {
+      text: 'Lunch?',
+      pollOptions: ['Pizza', 'Thai'],
+    });
+
+    expect(repository.createQuack).toHaveBeenCalledWith({
+      text: 'Lunch?',
+      mood: null,
+      pollOptions: ['Pizza', 'Thai'],
       userId: 'u1',
     });
   });
