@@ -26,6 +26,10 @@ Need a control that isn't in `src/components/ui/`? Add it with `pnpm dlx shadcn@
 
 The CLI puts `shadow-xs`/`shadow-sm` on inputs, textareas and cards. [`DESIGN.md`](DESIGN.md) keeps shadows for things that genuinely float — dialogs, dropdowns, toasts. Strip them.
 
+### Migrations are append-only
+
+Never delete or edit a migration folder once it has been applied, even locally. To redo one, roll the database back first (`pnpm backend db:reset`), or write a new migration on top. A deleted-but-applied migration leaves the database with tables the repo knows nothing about.
+
 ### The app is already running
 
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
