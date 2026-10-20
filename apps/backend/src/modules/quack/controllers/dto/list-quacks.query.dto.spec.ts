@@ -49,4 +49,18 @@ describe('ListQuacksQueryDto', () => {
 
     expect(errors).toHaveLength(0);
   });
+
+  it('accepts author=me', async () => {
+    const { dto, errors } = await parse({ author: 'me' });
+
+    expect(errors).toHaveLength(0);
+    expect(dto.author).toBe('me');
+  });
+
+  it('rejects any other author', async () => {
+    const { errors } = await parse({ author: 'u2' });
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.property).toBe('author');
+  });
 });

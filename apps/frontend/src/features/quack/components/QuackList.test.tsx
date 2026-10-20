@@ -1,5 +1,6 @@
 // Example component test — the pattern to copy for your own components.
-import { render, screen } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
@@ -126,5 +127,47 @@ describe("QuackList", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /reload/i }))
     expect(onReload).toHaveBeenCalledOnce()
+  })
+
+  it("offers delete only on the signed-in user's quacks", () => {
+    // The delete action brings its own mutation, so it needs a query client.
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <QuackList
+          quacks={[
+            quack({ id: "q1", userId: "u1", text: "mine" }),
+            quack({
+              id: "q2",
+              userId: "u2",
+              text: "theirs",
+              user: { id: "u2", name: "Bread Critic", username: "BreadCritic" },
+            }),
+          ]}
+          currentUserId="u1"
+        />
+      </QueryClientProvider>,
+    )
+
+    const [own, others] = screen.getAllByRole("article")
+    expect(within(own!).getByRole("button", { name: "Delete quack" })).toBeInTheDocument()
+    expect(within(others!).queryByRole("button", { name: "Delete quack" })).not.toBeInTheDocument()
+  })
+
+  it("offers no delete without a signed-in user", () => {
+    render(<QuackList quacks={[quack()]} />)
+
+    expect(screen.queryByRole("button", { name: "Delete quack" })).not.toBeInTheDocument()
+  })
+
+  it("shows a custom empty state in place of the feed one", () => {
+    render(
+      <QuackList
+        quacks={[]}
+        emptyState={<p>Nothing of yours yet</p>}
+      />,
+    )
+
+    expect(screen.getByText("Nothing of yours yet")).toBeInTheDocument()
+    expect(screen.queryByText(/No quacks yet/)).not.toBeInTheDocument()
   })
 })

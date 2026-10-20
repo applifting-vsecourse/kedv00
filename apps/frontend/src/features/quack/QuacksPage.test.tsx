@@ -2,7 +2,7 @@
 // the search input and the request are checked together.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -13,7 +13,7 @@ vi.mock("@/config/env", () => ({
   env: { VITE_API_URL: "http://localhost/api", VITE_BETTER_AUTH_URL: "http://localhost" },
 }))
 
-vi.mock("@/lib/api-client", () => ({ api: { get: vi.fn(), post: vi.fn() } }))
+vi.mock("@/lib/api-client", () => ({ api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }))
 
 vi.mock("@/features/auth/api/authSessionQueryOptions", async () => {
   const { queryOptions } = await import("@tanstack/react-query")
@@ -28,7 +28,7 @@ vi.mock("@/features/auth/api/authSessionQueryOptions", async () => {
   }
 })
 
-const QUACKS = [
+let QUACKS = [
   {
     id: "q1",
     text: "The north end of the pond is closed",
@@ -48,6 +48,8 @@ const QUACKS = [
     poll: null,
   },
 ]
+
+const INITIAL_QUACKS = [...QUACKS]
 
 const searchesSent = () =>
   vi
@@ -69,17 +71,26 @@ beforeEach(() => {
     })),
   )
 
+  QUACKS = [...INITIAL_QUACKS]
   vi.mocked(api.get).mockReset()
-  // A stand-in for the server: case-insensitive match on text or author name.
+  // A stand-in for the server: case-insensitive match on text or author name,
+  // and `author=me` keeps the signed-in user's (u1) quacks.
   vi.mocked(api.get).mockImplementation((_url, options) => {
-    const q = (options?.searchParams as { q?: string } | undefined)?.q?.toLowerCase()
-    const result = q
-      ? QUACKS.filter(
-          (quack) =>
-            quack.text.toLowerCase().includes(q) || quack.user.name.toLowerCase().includes(q),
-        )
-      : QUACKS
+    const params = options?.searchParams as { q?: string; author?: string } | undefined
+    const q = params?.q?.toLowerCase()
+    const result = QUACKS.filter(
+      (quack) =>
+        (!q || quack.text.toLowerCase().includes(q) || quack.user.name.toLowerCase().includes(q)) &&
+        (params?.author !== "me" || quack.userId === "u1"),
+    )
     return { json: () => Promise.resolve(result) } as unknown as ReturnType<typeof api.get>
+  })
+  vi.mocked(api.delete).mockReset()
+  vi.mocked(api.delete).mockImplementation((url) => {
+    QUACKS = QUACKS.filter((quack) => `quacks/${quack.id}` !== url)
+    return Promise.resolve(new Response(null, { status: 204 })) as unknown as ReturnType<
+      typeof api.delete
+    >
   })
 })
 
@@ -198,5 +209,106 @@ describe("Quacks page search", () => {
 
     await waitFor(() => expect(router.state.location.href).toBe("/quacks?q=pond"))
     expect(await searchInput()).toHaveValue("pond")
+  })
+})
+
+const authorsSent = () =>
+  vi
+    .mocked(api.get)
+    .mock.calls.map(
+      ([, options]) => (options?.searchParams as { author?: string } | undefined)?.author,
+    )
+
+describe("Quacks page tabs", () => {
+  it("shows only my quacks under Mine and keeps the tab in the URL", async () => {
+    const router = renderAt("/quacks")
+    await screen.findByText(quackText("Sourdough, thrown by a child"))
+
+    await userEvent.click(screen.getByRole("tab", { name: "Mine" }))
+
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: "mine" }))
+    expect(
+      await screen.findByText(quackText("The north end of the pond is closed")),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(quackText("Sourdough, thrown by a child"))).not.toBeInTheDocument()
+    expect(authorsSent()).toEqual([undefined, "me"])
+  })
+
+  it("never shows other people's quacks while Mine loads", async () => {
+    renderAt("/quacks")
+    await screen.findByText(quackText("Sourdough, thrown by a child"))
+
+    // Mine never answers, so whatever the list shows is left over from All.
+    vi.mocked(api.get).mockImplementation(
+      () => ({ json: () => new Promise(() => undefined) }) as unknown as ReturnType<typeof api.get>,
+    )
+
+    await userEvent.click(screen.getByRole("tab", { name: "Mine" }))
+
+    await waitFor(() => expect(authorsSent()).toContain("me"))
+    expect(screen.queryByText(quackText("Sourdough, thrown by a child"))).not.toBeInTheDocument()
+  })
+
+  it("offers to write the first quack when I have none", async () => {
+    QUACKS = QUACKS.filter((quack) => quack.userId !== "u1")
+    renderAt("/quacks?tab=mine")
+
+    await userEvent.click(await screen.findByRole("button", { name: "Write your first quack" }))
+
+    expect(screen.getByLabelText("New quack")).toHaveFocus()
+  })
+})
+
+describe("Quacks page delete", () => {
+  it("deletes my quack after I confirm", async () => {
+    renderAt("/quacks")
+    await screen.findByText(quackText("Sourdough, thrown by a child"))
+
+    // Only my quack has the action.
+    const [deleteButton, ...others] = screen.getAllByRole("button", { name: "Delete quack" })
+    expect(others).toHaveLength(0)
+
+    await userEvent.click(deleteButton!)
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText("Delete this quack?")).toBeInTheDocument()
+    expect(api.delete).not.toHaveBeenCalled()
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+
+    expect(api.delete).toHaveBeenCalledWith("quacks/q1")
+    await waitFor(() =>
+      expect(
+        screen.queryByText(quackText("The north end of the pond is closed")),
+      ).not.toBeInTheDocument(),
+    )
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    expect(screen.getByText(quackText("Sourdough, thrown by a child"))).toBeInTheDocument()
+  })
+
+  it("keeps the quack when I cancel", async () => {
+    renderAt("/quacks")
+    await userEvent.click(await screen.findByRole("button", { name: "Delete quack" }))
+
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }),
+    )
+
+    expect(api.delete).not.toHaveBeenCalled()
+    expect(screen.getByText(quackText("The north end of the pond is closed"))).toBeInTheDocument()
+  })
+
+  it("shows why a delete failed and keeps the dialog open", async () => {
+    vi.mocked(api.delete).mockImplementation(
+      () =>
+        Promise.reject(new Error("Server unreachable")) as unknown as ReturnType<typeof api.delete>,
+    )
+    renderAt("/quacks")
+    await userEvent.click(await screen.findByRole("button", { name: "Delete quack" }))
+
+    const dialog = await screen.findByRole("alertdialog")
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Server unreachable")
+    expect(screen.getByText(quackText("The north end of the pond is closed"))).toBeInTheDocument()
   })
 })

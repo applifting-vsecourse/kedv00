@@ -50,20 +50,22 @@ export class QuackRepository {
 
   async getQuacks(
     viewerId: string,
-    filter: { search?: string } = {},
+    filter: { search?: string; authorId?: string } = {},
   ): Promise<Quack[]> {
     const pattern = filter.search
       ? escapeLikeWildcards(filter.search)
       : undefined;
+    const where: Prisma.QuackWhereInput = {
+      ...(filter.authorId && { userId: filter.authorId }),
+      ...(pattern && {
+        OR: [
+          { text: { contains: pattern, mode: 'insensitive' } },
+          { user: { name: { contains: pattern, mode: 'insensitive' } } },
+        ],
+      }),
+    };
     const quacks = await this.prisma.quack.findMany({
-      where: pattern
-        ? {
-            OR: [
-              { text: { contains: pattern, mode: 'insensitive' } },
-              { user: { name: { contains: pattern, mode: 'insensitive' } } },
-            ],
-          }
-        : undefined,
+      where: Object.keys(where).length > 0 ? where : undefined,
       include: quackInclude(viewerId),
       orderBy: { createdAt: 'desc' },
     });
@@ -94,5 +96,23 @@ export class QuackRepository {
       include: quackInclude(createQuackData.userId),
     });
     return mapPrismaQuackToDomain(quack);
+  }
+
+  async quackExists(quackId: string): Promise<boolean> {
+    const count = await this.prisma.quack.count({ where: { id: quackId } });
+    return count > 0;
+  }
+
+  // Deletes the quack only if `authorId` wrote it, in a single statement, so
+  // the ownership check and the delete can't drift apart. Poll answers and
+  // votes go with it (onDelete: Cascade). Resolves to whether a row was deleted.
+  async deleteQuackOfAuthor(
+    quackId: string,
+    authorId: string,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.quack.deleteMany({
+      where: { id: quackId, userId: authorId },
+    });
+    return count > 0;
   }
 }

@@ -93,6 +93,27 @@ describe('QuackRepository.getQuacks', () => {
       });
     },
   );
+  it("limits the list to one author's quacks", async () => {
+    const { prisma, repository } = setup();
+
+    await repository.getQuacks(VIEWER_ID, { authorId: 'u1' });
+
+    expect(whereOf(prisma)).toEqual({ userId: 'u1' });
+  });
+
+  it('combines the author with the search term', async () => {
+    const { prisma, repository } = setup();
+
+    await repository.getQuacks(VIEWER_ID, { search: 'Duck', authorId: 'u1' });
+
+    expect(whereOf(prisma)).toEqual({
+      userId: 'u1',
+      OR: [
+        { text: { contains: 'Duck', mode: 'insensitive' } },
+        { user: { name: { contains: 'Duck', mode: 'insensitive' } } },
+      ],
+    });
+  });
 });
 
 describe('QuackRepository poll mapping', () => {
@@ -188,6 +209,29 @@ describe('QuackRepository.createQuack', () => {
 
     expect(prisma.quack.create.mock.calls[0]?.[0]?.data.pollOptions).toBe(
       undefined,
+    );
+  });
+});
+
+describe('QuackRepository.deleteQuackOfAuthor', () => {
+  it('deletes only when the quack belongs to the author', async () => {
+    const { prisma, repository } = setup();
+    prisma.quack.deleteMany.mockResolvedValue({ count: 1 });
+
+    await expect(repository.deleteQuackOfAuthor('q1', 'u1')).resolves.toBe(
+      true,
+    );
+    expect(prisma.quack.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'q1', userId: 'u1' },
+    });
+  });
+
+  it('reports when nothing was deleted', async () => {
+    const { prisma, repository } = setup();
+    prisma.quack.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(repository.deleteQuackOfAuthor('q1', 'u2')).resolves.toBe(
+      false,
     );
   });
 });

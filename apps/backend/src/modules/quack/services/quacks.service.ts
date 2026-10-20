@@ -1,7 +1,11 @@
 import { Quack, QuackMood } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 @Injectable()
 export class QuacksService {
@@ -9,10 +13,14 @@ export class QuacksService {
 
   async getQuacks(
     viewer: Identity,
-    filter: { search?: string } = {},
+    filter: { search?: string; onlyMine?: boolean } = {},
   ): Promise<Quack[]> {
-    // the viewer decides which answer is marked as their own in each poll
-    return this.quackRepository.getQuacks(viewer.id, filter);
+    // the viewer decides which answer is marked as their own in each poll,
+    // and whose quacks "mine" means
+    return this.quackRepository.getQuacks(viewer.id, {
+      search: filter.search,
+      authorId: filter.onlyMine ? viewer.id : undefined,
+    });
   }
 
   async createQuack(
@@ -30,5 +38,16 @@ export class QuacksService {
       // the author is taken from the session, never from the request body
       userId: user.id,
     });
+  }
+
+  async deleteQuack(user: Identity, quackId: string): Promise<void> {
+    // the author is the session user, so nobody can delete someone else's quack
+    if (await this.quackRepository.deleteQuackOfAuthor(quackId, user.id)) {
+      return;
+    }
+    if (await this.quackRepository.quackExists(quackId)) {
+      throw new ForbiddenException('You can only delete your own quacks');
+    }
+    throw new NotFoundException('Quack not found');
   }
 }
