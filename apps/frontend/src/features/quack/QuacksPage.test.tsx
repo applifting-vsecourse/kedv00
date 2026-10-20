@@ -15,6 +15,9 @@ vi.mock("@/config/env", () => ({
 
 vi.mock("@/lib/api-client", () => ({ api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }))
 
+// The signed-in user's role; a test may make them an admin.
+const session = vi.hoisted(() => ({ role: "user" }))
+
 vi.mock("@/features/auth/api/authSessionQueryOptions", async () => {
   const { queryOptions } = await import("@tanstack/react-query")
   return {
@@ -22,7 +25,13 @@ vi.mock("@/features/auth/api/authSessionQueryOptions", async () => {
       queryOptions({
         queryKey: ["auth", "session"],
         queryFn: () => ({
-          user: { id: "u1", email: "duck@example.com", name: "Caffeinated Duck", username: "duck" },
+          user: {
+            id: "u1",
+            email: "duck@example.com",
+            name: "Caffeinated Duck",
+            username: "duck",
+            role: session.role,
+          },
         }),
       }),
   }
@@ -72,6 +81,7 @@ beforeEach(() => {
   )
 
   QUACKS = [...INITIAL_QUACKS]
+  session.role = "user"
   vi.mocked(api.get).mockReset()
   // A stand-in for the server: case-insensitive match on text or author name,
   // and `author=me` keeps the signed-in user's (u1) quacks.
@@ -283,6 +293,26 @@ describe("Quacks page delete", () => {
     )
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     expect(screen.getByText(quackText("Sourdough, thrown by a child"))).toBeInTheDocument()
+  })
+
+  it("lets an admin delete someone else's quack, naming its author", async () => {
+    session.role = "admin"
+    renderAt("/quacks")
+    await screen.findByText(quackText("Sourdough, thrown by a child"))
+
+    const others = screen
+      .getAllByRole("article")
+      .find((article) => within(article).queryByText("@BreadCritic"))!
+    await userEvent.click(within(others).getByRole("button", { name: "Delete quack" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText("Delete @BreadCritic's quack?")).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+
+    expect(api.delete).toHaveBeenCalledWith("quacks/q2")
+    await waitFor(() =>
+      expect(screen.queryByText(quackText("Sourdough, thrown by a child"))).not.toBeInTheDocument(),
+    )
   })
 
   it("keeps the quack when I cancel", async () => {

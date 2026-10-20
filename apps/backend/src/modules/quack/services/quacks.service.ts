@@ -4,11 +4,14 @@ import { Identity } from '@/shared/auth/domain/identity';
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
 @Injectable()
 export class QuacksService {
+  private readonly logger = new Logger(QuacksService.name);
+
   constructor(private readonly quackRepository: QuackRepository) {}
 
   async getQuacks(
@@ -41,13 +44,21 @@ export class QuacksService {
   }
 
   async deleteQuack(user: Identity, quackId: string): Promise<void> {
-    // the author is the session user, so nobody can delete someone else's quack
-    if (await this.quackRepository.deleteQuackOfAuthor(quackId, user.id)) {
-      return;
+    const authorId = await this.quackRepository.findQuackAuthorId(quackId);
+    if (authorId === null) {
+      throw new NotFoundException('Quack not found');
     }
-    if (await this.quackRepository.quackExists(quackId)) {
+    // the user and their role come from the session, never from the request
+    const isOwner = authorId === user.id;
+    const isAdmin = user.role === 'admin';
+    if (!isOwner && !isAdmin) {
       throw new ForbiddenException('You can only delete your own quacks');
     }
-    throw new NotFoundException('Quack not found');
+    await this.quackRepository.deleteQuack(quackId);
+    if (!isOwner) {
+      this.logger.log(
+        `Moderator ${user.id} deleted quack ${quackId} by ${authorId}`,
+      );
+    }
   }
 }

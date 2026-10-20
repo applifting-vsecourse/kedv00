@@ -83,6 +83,8 @@ function QuacksPage() {
       onReload={() => void quacksQuery.refetch()}
       searchTerm={shownSearchTerm}
       currentUserId={user?.id}
+      // Only hides the button; the server decides who may delete.
+      isAdmin={user?.role === "admin"}
       emptyState={
         isMine ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
