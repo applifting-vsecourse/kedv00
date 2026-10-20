@@ -4,7 +4,7 @@ import {
 } from '@/modules/quack/domain/quack';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 
 // MinLength/MaxLength count an emoji as one character, the frontend counts it
 // as two (JS string length). Matching on UTF-16 units keeps both sides in step,
@@ -30,4 +30,13 @@ export class ListQuacksQueryDto {
     message: `q must be between ${QUACK_SEARCH_MIN_LENGTH} and ${QUACK_SEARCH_MAX_LENGTH} characters long`,
   })
   q?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Only return quacks by this author. `me` is the signed-in user.',
+    enum: ['me'],
+  })
+  @IsOptional()
+  @IsIn(['me'])
+  author?: 'me';
 }

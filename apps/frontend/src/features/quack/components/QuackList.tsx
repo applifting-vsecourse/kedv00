@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Loader2, RefreshCw } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -15,9 +16,21 @@ type QuackListProps = {
   onReload?: () => void
   /** The term `quacks` were filtered by, if any. */
   searchTerm?: string
+  /** The signed-in user; their own quacks get a delete action. */
+  currentUserId?: string
+  /** Replaces the feed's empty state, e.g. for a filtered list. */
+  emptyState?: ReactNode
 }
 
-export function QuackList({ quacks, isLoading, error, onReload, searchTerm }: QuackListProps) {
+export function QuackList({
+  quacks,
+  isLoading,
+  error,
+  onReload,
+  searchTerm,
+  currentUserId,
+  emptyState,
+}: QuackListProps) {
   const isInitialLoad = isLoading && quacks.length === 0
   const searchStatus =
     searchTerm !== undefined && !isInitialLoad && !error
@@ -67,17 +80,20 @@ export function QuackList({ quacks, isLoading, error, onReload, searchTerm }: Qu
         {searchStatus}
       </p>
 
-      {searchTerm === undefined && !isLoading && !error && quacks.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No quacks yet. Post the first one.
-        </p>
-      ) : null}
+      {searchTerm === undefined && !isLoading && !error && quacks.length === 0
+        ? (emptyState ?? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No quacks yet. Post the first one.
+            </p>
+          ))
+        : null}
 
       {quacks.map((quack) => (
         <QuackItem
           key={quack.id}
           quack={quack}
           highlight={searchTerm}
+          isOwn={currentUserId !== undefined && quack.userId === currentUserId}
         />
       ))}
     </div>

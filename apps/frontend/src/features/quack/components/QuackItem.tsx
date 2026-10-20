@@ -3,6 +3,7 @@ import { formatDate } from "@/lib/date"
 import { getMoodOption } from "@/lib/moods"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
+import { DeleteQuackButton } from "@/features/quack/components/DeleteQuackButton"
 import { HighlightedText } from "@/features/quack/components/HighlightedText"
 import { PollResults } from "@/features/quack/components/PollResults"
 import { UsersName } from "@/features/quack/components/UsersName"
@@ -12,9 +13,11 @@ type QuackItemProps = {
   quack: Quack
   /** Search term to mark in the text and the author name. */
   highlight?: string
+  /** The signed-in user wrote it, so they may delete it. */
+  isOwn?: boolean
 }
 
-export function QuackItem({ quack, highlight }: QuackItemProps) {
+export function QuackItem({ quack, highlight, isOwn }: QuackItemProps) {
   const { name, username } = quack.user
   const mood = quack.mood ? getMoodOption(quack.mood) : undefined
 
@@ -50,6 +53,11 @@ export function QuackItem({ quack, highlight }: QuackItemProps) {
                 {mood.label}
               </span>
             </>
+          ) : null}
+          {isOwn ? (
+            <div className="ml-auto self-center">
+              <DeleteQuackButton quackId={quack.id} />
+            </div>
           ) : null}
         </div>
         <p className="text-sm break-words whitespace-pre-line">
