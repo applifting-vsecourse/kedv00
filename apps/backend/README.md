@@ -61,7 +61,7 @@ This project uses PostgreSQL running in Docker Compose for both development and 
 pnpm backend docker:up
 ```
 
-   It listens on host port **5433** so it can't clash with a Postgres you already run locally. Credentials for development are `quacker` / `quacker` / `quacker`.
+   It listens on host port **5434** so it can't clash with a Postgres you already run locally. Credentials for development are `quacker` / `quacker` (user / password), database `kedv00`.
 
 2. Browse the data:
 

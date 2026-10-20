@@ -29,7 +29,7 @@ pnpm dev
 | Auth API docs      | http://localhost:4050/api/auth/reference             |
 | DB browser         | `pnpm backend prisma:studio` → http://localhost:5555 |
 
-The ports are deliberately odd — 3050, 4050, and Postgres on 5433 rather than the usual 3000, 4000 and 5432 — so the stack doesn't fight whatever else you have running. They're pinned rather than auto-incremented: the API only accepts requests from the frontend's exact origin, so a port that silently moved would surface as an unexplained CORS error.
+The ports are deliberately odd — 3050, 4050, and Postgres on 5434 rather than the usual 3000, 4000 and 5432 — so the stack doesn't fight whatever else you have running. They're pinned rather than auto-incremented: the API only accepts requests from the frontend's exact origin, so a port that silently moved would surface as an unexplained CORS error.
 
 ### Seeded users
 
