@@ -1,3 +1,4 @@
+name: kedv00
 services:
   db:
     image: postgres:17-alpine

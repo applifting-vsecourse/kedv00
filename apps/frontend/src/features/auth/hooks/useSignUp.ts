@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { ROUTES } from "@/app/routes"
 import { authKeys } from "@/lib/auth-keys"
 
 import { authClient } from "@/features/auth/lib/auth-client"
@@ -22,6 +23,7 @@ export function useSignUp() {
         username: input.username,
         email: input.email,
         password: input.password,
+        callbackURL: `${window.location.origin}${ROUTES.quacks}`,
       })
       if (error) throw new Error(error.message ?? "Sign up failed")
     },
