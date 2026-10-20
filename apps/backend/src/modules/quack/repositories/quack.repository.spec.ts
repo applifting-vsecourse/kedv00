@@ -213,25 +213,35 @@ describe('QuackRepository.createQuack', () => {
   });
 });
 
-describe('QuackRepository.deleteQuackOfAuthor', () => {
-  it('deletes only when the quack belongs to the author', async () => {
+describe('QuackRepository.findQuackAuthorId', () => {
+  it("returns the author's id", async () => {
     const { prisma, repository } = setup();
-    prisma.quack.deleteMany.mockResolvedValue({ count: 1 });
+    prisma.quack.findUnique.mockResolvedValue({ userId: 'u1' } as never);
 
-    await expect(repository.deleteQuackOfAuthor('q1', 'u1')).resolves.toBe(
-      true,
-    );
-    expect(prisma.quack.deleteMany).toHaveBeenCalledWith({
-      where: { id: 'q1', userId: 'u1' },
+    await expect(repository.findQuackAuthorId('q1')).resolves.toBe('u1');
+    expect(prisma.quack.findUnique).toHaveBeenCalledWith({
+      where: { id: 'q1' },
+      select: { userId: true },
     });
   });
 
-  it('reports when nothing was deleted', async () => {
+  it('returns null for a quack that does not exist', async () => {
     const { prisma, repository } = setup();
-    prisma.quack.deleteMany.mockResolvedValue({ count: 0 });
+    prisma.quack.findUnique.mockResolvedValue(null);
 
-    await expect(repository.deleteQuackOfAuthor('q1', 'u2')).resolves.toBe(
-      false,
-    );
+    await expect(repository.findQuackAuthorId('nope')).resolves.toBeNull();
+  });
+});
+
+describe('QuackRepository.deleteQuack', () => {
+  it('deletes the quack by id', async () => {
+    const { prisma, repository } = setup();
+    prisma.quack.deleteMany.mockResolvedValue({ count: 1 });
+
+    await repository.deleteQuack('q1');
+
+    expect(prisma.quack.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'q1' },
+    });
   });
 });

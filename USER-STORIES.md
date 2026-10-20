@@ -118,3 +118,44 @@ Today people ask questions in quacks and count the replies by hand. Someone alwa
 
 - Answer order is the order the asker entered them. It never changes based on votes.
 - Percentages are rounded to whole numbers, so they may not add up to exactly 100%.
+
+## US-3 — Moderators delete any quack
+
+**As a** moderator (a user with the `admin` role)
+**I want to** delete any quack, not only my own
+**So that** nasty quacks disappear even when their author won't remove them
+
+### Context
+
+Someone started posting nasty quacks. Their author won't delete them, and right now nobody else can. We need a moderator who can delete anything. Nothing more for now.
+
+### Acceptance criteria
+
+**Who may delete**
+
+- The author of a quack can delete it, as before.
+- An admin can delete any quack.
+- Anyone else gets 403 Forbidden, also when they call the API directly (Swagger, curl). Signed out: 401. A quack that doesn't exist: 404.
+- The server decides from the session: who the user is and their role. Nothing about the user comes from the URL or the body.
+
+**In the feed**
+
+- An admin sees the Delete action on every quack. Everyone else sees it only on their own quacks, as before.
+- On their own quack, the admin sees the same confirmation as everyone else ("Delete this quack?").
+- On someone else's quack, the confirmation names the author, e.g. "Delete @DeepDuckThoughts's quack?", so a moderator doesn't remove the wrong post by mistake.
+- A deleted quack is gone for everyone, along with its poll votes, the same as when the author deletes it.
+
+**Record**
+
+- When someone deletes a quack that isn't theirs, the backend logs a line saying which user deleted which quack and who wrote it.
+
+### Out of scope
+
+- Telling the author that a moderator deleted their quack.
+- An audit trail in the database, soft delete, or undoing a deletion.
+- A separate moderator role, or giving someone the admin role from the app. The admin account comes from the seed.
+- Banning or muting users, reporting quacks.
+
+### Notes
+
+- Hiding the button is only a convenience. The server check is what counts.

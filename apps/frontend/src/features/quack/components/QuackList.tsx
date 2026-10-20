@@ -18,6 +18,8 @@ type QuackListProps = {
   searchTerm?: string
   /** The signed-in user; their own quacks get a delete action. */
   currentUserId?: string
+  /** The signed-in user is an admin; every quack gets a delete action. */
+  isAdmin?: boolean
   /** Replaces the feed's empty state, e.g. for a filtered list. */
   emptyState?: ReactNode
 }
@@ -29,6 +31,7 @@ export function QuackList({
   onReload,
   searchTerm,
   currentUserId,
+  isAdmin,
   emptyState,
 }: QuackListProps) {
   const isInitialLoad = isLoading && quacks.length === 0
@@ -94,6 +97,7 @@ export function QuackList({
           quack={quack}
           highlight={searchTerm}
           isOwn={currentUserId !== undefined && quack.userId === currentUserId}
+          isAdmin={isAdmin}
         />
       ))}
     </div>

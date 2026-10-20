@@ -15,9 +15,11 @@ type QuackItemProps = {
   highlight?: string
   /** The signed-in user wrote it, so they may delete it. */
   isOwn?: boolean
+  /** The signed-in user is an admin, so they may delete any quack. */
+  isAdmin?: boolean
 }
 
-export function QuackItem({ quack, highlight, isOwn }: QuackItemProps) {
+export function QuackItem({ quack, highlight, isOwn, isAdmin }: QuackItemProps) {
   const { name, username } = quack.user
   const mood = quack.mood ? getMoodOption(quack.mood) : undefined
 
@@ -54,9 +56,12 @@ export function QuackItem({ quack, highlight, isOwn }: QuackItemProps) {
               </span>
             </>
           ) : null}
-          {isOwn ? (
+          {isOwn || isAdmin ? (
             <div className="ml-auto self-center">
-              <DeleteQuackButton quackId={quack.id} />
+              <DeleteQuackButton
+                quackId={quack.id}
+                authorUsername={isOwn ? undefined : username}
+              />
             </div>
           ) : null}
         </div>

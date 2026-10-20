@@ -98,21 +98,19 @@ export class QuackRepository {
     return mapPrismaQuackToDomain(quack);
   }
 
-  async quackExists(quackId: string): Promise<boolean> {
-    const count = await this.prisma.quack.count({ where: { id: quackId } });
-    return count > 0;
+  // Who wrote the quack, or null when it doesn't exist.
+  async findQuackAuthorId(quackId: string): Promise<string | null> {
+    const quack = await this.prisma.quack.findUnique({
+      where: { id: quackId },
+      select: { userId: true },
+    });
+    return quack?.userId ?? null;
   }
 
-  // Deletes the quack only if `authorId` wrote it, in a single statement, so
-  // the ownership check and the delete can't drift apart. Poll answers and
-  // votes go with it (onDelete: Cascade). Resolves to whether a row was deleted.
-  async deleteQuackOfAuthor(
-    quackId: string,
-    authorId: string,
-  ): Promise<boolean> {
-    const { count } = await this.prisma.quack.deleteMany({
-      where: { id: quackId, userId: authorId },
-    });
-    return count > 0;
+  // Poll answers and votes go with it (onDelete: Cascade). Callers check who
+  // may delete first; the author of a quack never changes, so that check
+  // can't go stale. deleteMany, so a quack deleted meanwhile isn't an error.
+  async deleteQuack(quackId: string): Promise<void> {
+    await this.prisma.quack.deleteMany({ where: { id: quackId } });
   }
 }
